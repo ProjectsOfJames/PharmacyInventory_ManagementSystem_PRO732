@@ -97,7 +97,7 @@ public class Login extends JFrame {
         setContentPane(root);
     }
 
-    // Package-private getters so later segments can attach logic without altering UI structure
+    // Package-private getters
     JTextField getUsernameField() { return usernameField; }
     JPasswordField getPasswordField() { return passwordField; }
     JLabel getMessageLabel() { return messageLabel; }

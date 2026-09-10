@@ -3,6 +3,8 @@ package org.example;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
 
 public class UIStyle {
@@ -42,11 +44,31 @@ public class UIStyle {
     }
 
     public static void styleTable(JTable table) {
+        JTableHeader header =  table.getTableHeader();
+        header.setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public void setOpaque(boolean isOpaque) {
+                super.setOpaque(true);
+            }
+
+            @Override
+            public void setForeground(Color c) {
+                super.setForeground(Color.WHITE);
+            }
+
+            @Override
+            public void setBackground(Color c) {
+                super.setBackground(PRIMARY);
+            }
+
+            @Override
+            public void setFont(Font font) {
+                super.setFont(FONT_TABLE_HEADER);
+            }
+        });
+
         table.setFont(FONT_TABLE);
         table.setRowHeight(26);
-        table.getTableHeader().setFont(FONT_TABLE_HEADER);
-        table.getTableHeader().setBackground(PRIMARY);
-        table.getTableHeader().setForeground(Color.WHITE);
         table.setSelectionBackground(new Color(200, 224, 246));
         table.setGridColor(new Color(224, 224, 224));
     }
