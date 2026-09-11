@@ -11,7 +11,7 @@ public class UIStyle {
 
     public static final Color PRIMARY_DARK = new Color(89, 19, 163);
     public static final Color PRIMARY = new Color(74, 42, 186);
-    public static final Color ACCENT = new Color(140, 226, 34);
+    public static final Color ACCENT = new Color(105, 168, 25);
     public static final Color BG_LIGHT = new Color(244, 247, 250);
     public static final Color SUCCESS = new Color(42, 179, 74);
     public static final Color DANGER = new Color(151, 24, 24);
