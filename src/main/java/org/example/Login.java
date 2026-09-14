@@ -72,7 +72,20 @@ public class Login extends JFrame {
 
         loginBtn = UIStyle.styledButton("LOGIN", UIStyle.PRIMARY);
         loginBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        loginBtn.addActionListener(e -> attemptLogin());
+        passwordField.addActionListener(e -> attemptLogin()); // Enter key submits
 
+        JButton signUpLink = new JButton("Don't have an account? Sign Up");
+        signUpLink.setFont(UIStyle.FONT_LABEL);
+        signUpLink.setAlignmentX(Component.LEFT_ALIGNMENT);
+        signUpLink.setBorderPainted(false);
+        signUpLink.setContentAreaFilled(false);
+        signUpLink.setForeground(UIStyle.PRIMARY);
+        signUpLink.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        signUpLink.addActionListener(e -> {
+            dispose();
+            new SignUp().setVisible(true);
+        });
 
         form.add(userLbl);
         form.add(Box.createVerticalStrut(5));
@@ -85,10 +98,12 @@ public class Login extends JFrame {
         form.add(messageLabel);
         form.add(Box.createVerticalStrut(15));
         form.add(loginBtn);
+        form.add(Box.createVerticalStrut(12));
+        form.add(signUpLink);
 
         root.add(form, BorderLayout.CENTER);
 
-        JLabel footer = new JLabel("HealthFirst Pharmacy", SwingConstants.CENTER);
+        JLabel footer = new JLabel("© HealthFirst Pharmacy | PROGRAMMING 732", SwingConstants.CENTER);
         footer.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         footer.setForeground(Color.GRAY);
         footer.setBorder(new EmptyBorder(0, 0, 10, 0));
@@ -97,9 +112,33 @@ public class Login extends JFrame {
         setContentPane(root);
     }
 
-    // Package-private getters
+    private Models.User loggedInUser; // set on successful login; used for navigation in Segment 4
+
+    private void attemptLogin() {
+        String username = usernameField.getText().trim();
+        String password = new String(passwordField.getPassword());
+
+        if (username.isEmpty() || password.isEmpty()) {
+            messageLabel.setText("Please enter both username and password.");
+            return;
+        }
+
+        Models.User user = DBConnection.authenticate(username, password);
+        if (user == null) {
+            messageLabel.setText("Invalid username or password.");
+            passwordField.setText("");
+            return;
+        }
+
+        loggedInUser = user;
+        messageLabel.setForeground(UIStyle.SUCCESS);
+        messageLabel.setText("Login successful. Welcome, " + user.getFullName() + "!");
+    }
+
+    // Package-private getters so later segments can attach logic without altering UI structure
     JTextField getUsernameField() { return usernameField; }
     JPasswordField getPasswordField() { return passwordField; }
     JLabel getMessageLabel() { return messageLabel; }
     JButton getLoginBtn() { return loginBtn; }
+    Models.User getLoggedInUser() { return loggedInUser; }
 }
