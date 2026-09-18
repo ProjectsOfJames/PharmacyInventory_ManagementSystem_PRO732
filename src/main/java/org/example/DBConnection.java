@@ -181,22 +181,91 @@ public class DBConnection {
 
         } catch (SQLException e) {
             e.printStackTrace();
-
-            try {
-                if (conn != null) conn.rollback();
-            }
-            catch (SQLException ex) {
-                ex.printStackTrace();
-            }
-
+            try { if (conn != null) conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
             return -1;
         } finally {
-            try {
-                if (conn != null) conn.setAutoCommit(true);
-            }
-            catch (SQLException e) {
-                e.printStackTrace();
-            }
+            try { if (conn != null) conn.setAutoCommit(true); } catch (SQLException e) { e.printStackTrace(); }
+        }
+    }
+    // Returns all suppliers, ordered by ID (used to populate the supplier dropdown)
+    public static java.util.List<Models.Supplier> getAllSuppliers() {
+        java.util.List<Models.Supplier> list = new java.util.ArrayList<>();
+        String sql = "SELECT * FROM suppliers ORDER BY supplier_id";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) list.add(mapSupplierRow(rs));
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    private static Models.Supplier mapSupplierRow(ResultSet rs) throws SQLException {
+        return new Models.Supplier(
+                rs.getInt("supplier_id"),
+                rs.getString("name"),
+                rs.getString("contact_person"),
+                rs.getString("phone"),
+                rs.getString("email"),
+                rs.getString("address")
+        );
+    }
+
+    // Inserts a new medicine. supplierId may be 0/negative to store NULL
+    public static boolean addMedicine(Models.Medicine m) {
+        String sql = "INSERT INTO medicines (name, company, medicine_type, price, quantity_in_stock, reorder_level, expiry_date, supplier_id) " +
+                "VALUES (?,?,?,?,?,?,?,?)";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            bindMedicine(ps, m);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Updates an existing medicine by medicine_id
+    public static boolean updateMedicine(Models.Medicine m) {
+        String sql = "UPDATE medicines SET name=?, company=?, medicine_type=?, price=?, quantity_in_stock=?, " +
+                "reorder_level=?, expiry_date=?, supplier_id=? WHERE medicine_id=?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            bindMedicine(ps, m);
+            ps.setInt(9, m.getMedicineId());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Deletes a medicine by ID. Returns false if it fails (e.g. referenced by past sales)
+    public static boolean deleteMedicine(int medicineId) {
+        String sql = "DELETE FROM medicines WHERE medicine_id=?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, medicineId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private static void bindMedicine(PreparedStatement ps, Models.Medicine m) throws SQLException {
+        ps.setString(1, m.getName());
+        ps.setString(2, m.getCompany());
+        ps.setString(3, m.getMedicineType());
+        ps.setBigDecimal(4, m.getPrice());
+        ps.setInt(5, m.getQuantityInStock());
+        ps.setInt(6, m.getReorderLevel());
+        ps.setDate(7, m.getExpiryDate());
+        if (m.getSupplierId() > 0) {
+            ps.setInt(8, m.getSupplierId());
+        } else {
+            ps.setNull(8, java.sql.Types.INTEGER);
         }
     }
 }

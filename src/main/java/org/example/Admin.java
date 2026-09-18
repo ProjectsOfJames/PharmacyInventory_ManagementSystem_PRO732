@@ -27,21 +27,20 @@ public class Admin extends JPanel {
         add(tabs, BorderLayout.CENTER);
     }
 
-    // Package-private accessors
+    // Package-private accessors so later segments can attach logic
     ManageMedicinesTab getMedicinesTab() { return medicinesTab; }
     ManageSuppliersTab getSuppliersTab() { return suppliersTab; }
     ManageUsersTab getUsersTab() { return usersTab; }
 
-    //////////////////////////
     // TAB 1: Manage Medicines
-    //////////////////////////
     static class ManageMedicinesTab extends JPanel {
         JTable table;
         DefaultTableModel tableModel;
         JTextField nameField, companyField, priceField, qtyField, reorderField, expiryField, searchField;
         JComboBox<String> typeCombo;
-        JComboBox<String> supplierCombo; // populated with supplier names in Segment 8
+        JComboBox<Models.Supplier> supplierCombo;
         JButton searchBtn, clearSearchBtn, addBtn, updateBtn, deleteBtn, clearFormBtn;
+        int selectedMedicineId = -1;
 
         ManageMedicinesTab() {
             setLayout(new BorderLayout(10, 10));
@@ -51,6 +50,8 @@ public class Admin extends JPanel {
             add(buildTopPanel(), BorderLayout.NORTH);
             add(buildTablePanel(), BorderLayout.CENTER);
             add(buildFormPanel(), BorderLayout.SOUTH);
+
+            loadMedicines(null);
         }
 
         private JPanel buildTopPanel() {
@@ -64,7 +65,11 @@ public class Admin extends JPanel {
             searchField.setFont(UIStyle.FONT_FIELD);
             searchBtn = UIStyle.styledButton("Search", UIStyle.PRIMARY);
             clearSearchBtn = UIStyle.styledButton("Clear", Color.GRAY);
-
+            searchBtn.addActionListener(e -> {
+                String kw = searchField.getText().trim();
+                loadMedicines(kw.isEmpty() ? null : kw);
+            });
+            clearSearchBtn.addActionListener(e -> { searchField.setText(""); loadMedicines(null); });
             searchPanel.add(new JLabel("Search: "));
             searchPanel.add(searchField);
             searchPanel.add(searchBtn);
@@ -80,7 +85,9 @@ public class Admin extends JPanel {
             };
             table = new JTable(tableModel);
             UIStyle.styleTable(table);
-
+            table.getSelectionModel().addListSelectionListener(e -> {
+                if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) populateFormFromRow(table.getSelectedRow());
+            });
             JScrollPane scroll = new JScrollPane(table);
             scroll.setPreferredSize(new Dimension(1000, 280));
             return scroll;
@@ -102,6 +109,7 @@ public class Admin extends JPanel {
             reorderField = new JTextField();
             expiryField = new JTextField(); // format yyyy-MM-dd
             supplierCombo = new JComboBox<>();
+            refreshSupplierCombo();
 
             grid.add(UIStyle.labeledField("Name", nameField));
             grid.add(UIStyle.labeledField("Company", companyField));
@@ -120,7 +128,10 @@ public class Admin extends JPanel {
             updateBtn = UIStyle.styledButton("Update", UIStyle.PRIMARY);
             deleteBtn = UIStyle.styledButton("Delete", UIStyle.DANGER);
             clearFormBtn = UIStyle.styledButton("Clear Form", Color.GRAY);
-
+            addBtn.addActionListener(e -> addMedicine());
+            updateBtn.addActionListener(e -> updateMedicine());
+            deleteBtn.addActionListener(e -> deleteMedicine());
+            clearFormBtn.addActionListener(e -> clearForm());
 
             buttons.add(addBtn);
             buttons.add(updateBtn);
@@ -130,11 +141,139 @@ public class Admin extends JPanel {
 
             return outer;
         }
+
+        private void refreshSupplierCombo() {
+            supplierCombo.removeAllItems();
+            for (Models.Supplier s : DBConnection.getAllSuppliers()) {
+                supplierCombo.addItem(s);
+            }
+        }
+
+        private void loadMedicines(String keyword) {
+            java.util.List<Models.Medicine> meds = (keyword == null) ? DBConnection.getAllMedicines() : DBConnection.searchMedicines(keyword);
+            tableModel.setRowCount(0);
+            for (Models.Medicine m : meds) {
+                tableModel.addRow(new Object[]{
+                        m.getMedicineId(), m.getName(), m.getCompany(), m.getMedicineType(),
+                        m.getPrice(), m.getQuantityInStock(), m.getReorderLevel(),
+                        m.getExpiryDate(), m.getSupplierName()
+                });
+            }
+        }
+
+        private void populateFormFromRow(int row) {
+            selectedMedicineId = (int) tableModel.getValueAt(row, 0);
+            nameField.setText(String.valueOf(tableModel.getValueAt(row, 1)));
+            companyField.setText(String.valueOf(tableModel.getValueAt(row, 2)));
+            typeCombo.setSelectedItem(String.valueOf(tableModel.getValueAt(row, 3)));
+            priceField.setText(String.valueOf(tableModel.getValueAt(row, 4)));
+            qtyField.setText(String.valueOf(tableModel.getValueAt(row, 5)));
+            reorderField.setText(String.valueOf(tableModel.getValueAt(row, 6)));
+            expiryField.setText(String.valueOf(tableModel.getValueAt(row, 7)));
+            String supplierName = String.valueOf(tableModel.getValueAt(row, 8));
+            for (int i = 0; i < supplierCombo.getItemCount(); i++) {
+                if (supplierCombo.getItemAt(i).getName().equals(supplierName)) {
+                    supplierCombo.setSelectedIndex(i);
+                    break;
+                }
+            }
+        }
+
+        private boolean validateForm() {
+            if (nameField.getText().trim().isEmpty() || priceField.getText().trim().isEmpty()
+                    || qtyField.getText().trim().isEmpty() || reorderField.getText().trim().isEmpty()
+                    || expiryField.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please fill all required fields.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return false;
+            }
+            try {
+                new java.math.BigDecimal(priceField.getText().trim());
+                Integer.parseInt(qtyField.getText().trim());
+                Integer.parseInt(reorderField.getText().trim());
+                java.sql.Date.valueOf(expiryField.getText().trim());
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Invalid number or date format. Use yyyy-MM-dd for date.",
+                        "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return false;
+            }
+            return true;
+        }
+
+        private Models.Medicine buildMedicineFromForm() {
+            Models.Medicine m = new Models.Medicine();
+            m.setMedicineId(selectedMedicineId);
+            m.setName(nameField.getText().trim());
+            m.setCompany(companyField.getText().trim());
+            m.setMedicineType((String) typeCombo.getSelectedItem());
+            m.setPrice(new java.math.BigDecimal(priceField.getText().trim()));
+            m.setQuantityInStock(Integer.parseInt(qtyField.getText().trim()));
+            m.setReorderLevel(Integer.parseInt(reorderField.getText().trim()));
+            m.setExpiryDate(java.sql.Date.valueOf(expiryField.getText().trim()));
+            Models.Supplier sel = (Models.Supplier) supplierCombo.getSelectedItem();
+            m.setSupplierId(sel != null ? sel.getSupplierId() : 0);
+            return m;
+        }
+
+        private void addMedicine() {
+            if (!validateForm()) return;
+            if (DBConnection.addMedicine(buildMedicineFromForm())) {
+                JOptionPane.showMessageDialog(this, "Medicine added successfully.");
+                clearForm();
+                loadMedicines(null);
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to add medicine.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
+        private void updateMedicine() {
+            if (selectedMedicineId == -1) {
+                JOptionPane.showMessageDialog(this, "Select a medicine from the table first.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (!validateForm()) return;
+            if (DBConnection.updateMedicine(buildMedicineFromForm())) {
+                JOptionPane.showMessageDialog(this, "Medicine updated successfully.");
+                clearForm();
+                loadMedicines(null);
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to update medicine.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
+        private void deleteMedicine() {
+            if (selectedMedicineId == -1) {
+                JOptionPane.showMessageDialog(this, "Select a medicine from the table first.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int confirm = JOptionPane.showConfirmDialog(this, "Delete this medicine permanently?",
+                    "Confirm Delete", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (DBConnection.deleteMedicine(selectedMedicineId)) {
+                    JOptionPane.showMessageDialog(this, "Medicine deleted.");
+                    clearForm();
+                    loadMedicines(null);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to delete (it may be referenced by past sales).",
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+
+        private void clearForm() {
+            selectedMedicineId = -1;
+            nameField.setText("");
+            companyField.setText("");
+            typeCombo.setSelectedIndex(0);
+            priceField.setText("");
+            qtyField.setText("");
+            reorderField.setText("");
+            expiryField.setText("");
+            refreshSupplierCombo();
+            table.clearSelection();
+        }
     }
 
-    // ==================================================================
-    // TAB 2: Manage Suppliers (UI only - CRUD logic added in Segment 9)
-    // ==================================================================
+    // TAB 2: Manage Suppliers
     static class ManageSuppliersTab extends JPanel {
         JTable table;
         DefaultTableModel tableModel;
@@ -204,9 +343,8 @@ public class Admin extends JPanel {
         }
     }
 
-    // ==================================================================
-    // TAB 3: Manage Users (UI only - CRUD logic added in Segment 10)
-    // ==================================================================
+
+    // TAB 3: Manage Users
     static class ManageUsersTab extends JPanel {
         JTable table;
         DefaultTableModel tableModel;
@@ -264,7 +402,6 @@ public class Admin extends JPanel {
             updateBtn = UIStyle.styledButton("Update", UIStyle.PRIMARY);
             deleteBtn = UIStyle.styledButton("Delete", UIStyle.DANGER);
             clearFormBtn = UIStyle.styledButton("Clear Form", Color.GRAY);
-            // TODO (Segment 10): wire up Add/Update/Delete/Clear logic
 
             buttons.add(addBtn);
             buttons.add(updateBtn);
