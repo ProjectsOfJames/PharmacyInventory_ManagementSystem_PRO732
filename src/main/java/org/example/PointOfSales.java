@@ -113,7 +113,9 @@ public class PointOfSales extends JPanel {
         clearCartBtn = UIStyle.styledButton("Clear Cart", Color.GRAY);
         checkoutBtn = UIStyle.styledButton("Checkout", UIStyle.ACCENT);
         removeBtn.addActionListener(e -> removeSelectedFromCart());
+        clearCartBtn.addActionListener(e -> clearCart());
         checkoutBtn.addActionListener(e -> checkout());
+        // (Bill window logic completed in Segment 6)
 
         buttons.add(removeBtn);
         buttons.add(clearCartBtn);
@@ -183,6 +185,18 @@ public class PointOfSales extends JPanel {
         refreshCartTable();
     }
 
+    private void clearCart() {
+        if (cart.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Cart is already empty.", "Nothing to Clear", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        int confirm = JOptionPane.showConfirmDialog(this, "Clear the entire cart?", "Confirm Clear Cart", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            cart.clear();
+            refreshCartTable();
+        }
+    }
+
     private void refreshCartTable() {
         cartModel.setRowCount(0);
         BigDecimal total = BigDecimal.ZERO;
@@ -216,12 +230,81 @@ public class PointOfSales extends JPanel {
             return;
         }
 
-        JOptionPane.showMessageDialog(this, "Sale #" + saleId + " completed successfully. Total: R" + total,
-                "Checkout Successful", JOptionPane.INFORMATION_MESSAGE);
+        showBillDialog(saleId, new ArrayList<>(cart), total);
 
         cart.clear();
         refreshCartTable();
         loadMedicines(null);
+    }
+
+    private void showBillDialog(int saleId, List<Models.SaleItem> items, BigDecimal total) {
+        JDialog bill = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Bill - Sale #" + saleId, true);
+        bill.setSize(480, 550);
+        bill.setLocationRelativeTo(this);
+
+        JTextArea billArea = new JTextArea();
+        billArea.setFont(new Font("Consolas", Font.PLAIN, 13));
+        billArea.setEditable(false);
+        billArea.setText(buildBillText(saleId, items, total));
+
+        bill.add(new JScrollPane(billArea), BorderLayout.CENTER);
+
+        JPanel buttons = new JPanel();
+        JButton printBtn = UIStyle.styledButton("Print", UIStyle.PRIMARY);
+        JButton saveBtn = UIStyle.styledButton("Save to File", UIStyle.SUCCESS);
+        JButton closeBtn = UIStyle.styledButton("Close", Color.GRAY);
+
+        printBtn.addActionListener(e -> {
+            try {
+                billArea.print();
+            } catch (java.awt.print.PrinterException ex) {
+                JOptionPane.showMessageDialog(bill, "Printing failed: " + ex.getMessage(), "Print Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        saveBtn.addActionListener(e -> {
+            String filename = "bill_" + saleId + ".txt";
+            try (java.io.FileWriter fw = new java.io.FileWriter(filename)) {
+                fw.write(billArea.getText());
+                JOptionPane.showMessageDialog(bill, "Bill saved as " + filename);
+            } catch (java.io.IOException ex) {
+                JOptionPane.showMessageDialog(bill, "Failed to save bill: " + ex.getMessage(), "Save Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        closeBtn.addActionListener(e -> bill.dispose());
+
+        buttons.add(printBtn);
+        buttons.add(saveBtn);
+        buttons.add(closeBtn);
+        bill.add(buttons, BorderLayout.SOUTH);
+
+        bill.setVisible(true);
+    }
+
+    private String buildBillText(int saleId, List<Models.SaleItem> items, BigDecimal total) {
+        StringBuilder sb = new StringBuilder();
+        String line = "----------------------------------------\n";
+        sb.append("        HEALTHFIRST PHARMACY\n");
+        sb.append("      Official Sales Receipt\n");
+        sb.append(line);
+        sb.append("Sale ID   : ").append(saleId).append("\n");
+        sb.append("Date/Time : ").append(java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n");
+        sb.append("Cashier   : ").append(cashier.getFullName()).append("\n");
+        sb.append(line);
+        sb.append(String.format("%-20s %3s %8s %8s%n", "Item", "Qty", "Price", "Total"));
+        sb.append(line);
+        for (Models.SaleItem item : items) {
+            String name = item.getMedicineName();
+            String truncated = name.length() <= 20 ? name : name.substring(0, 19) + ".";
+            sb.append(String.format("%-20s %3d %8.2f %8.2f%n",
+                    truncated, item.getQuantitySold(), item.getPriceAtSale(), item.getLineTotal()));
+        }
+        sb.append(line);
+        sb.append(String.format("%-32s R%8.2f%n", "TOTAL", total));
+        sb.append(line);
+        sb.append("   Thank you for your purchase!\n");
+        sb.append("   Get well soon.\n");
+        return sb.toString();
     }
 
     // Package-private getters/accessors so later segments can attach logic without altering UI structure
