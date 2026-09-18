@@ -279,6 +279,7 @@ public class Admin extends JPanel {
         DefaultTableModel tableModel;
         JTextField nameField, contactField, phoneField, emailField, addressField;
         JButton addBtn, updateBtn, deleteBtn, clearFormBtn;
+        int selectedSupplierId = -1;
 
         ManageSuppliersTab() {
             setLayout(new BorderLayout(10, 10));
@@ -288,6 +289,8 @@ public class Admin extends JPanel {
             add(UIStyle.headerLabel("Manage Suppliers"), BorderLayout.NORTH);
             add(buildTablePanel(), BorderLayout.CENTER);
             add(buildFormPanel(), BorderLayout.SOUTH);
+
+            loadSuppliers();
         }
 
         private JScrollPane buildTablePanel() {
@@ -297,7 +300,9 @@ public class Admin extends JPanel {
             };
             table = new JTable(tableModel);
             UIStyle.styleTable(table);
-            // TODO (Segment 9): wire up row-selection -> populate form logic
+            table.getSelectionModel().addListSelectionListener(e -> {
+                if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) populateFormFromRow(table.getSelectedRow());
+            });
             JScrollPane scroll = new JScrollPane(table);
             scroll.setPreferredSize(new Dimension(1000, 320));
             return scroll;
@@ -331,7 +336,10 @@ public class Admin extends JPanel {
             updateBtn = UIStyle.styledButton("Update", UIStyle.PRIMARY);
             deleteBtn = UIStyle.styledButton("Delete", UIStyle.DANGER);
             clearFormBtn = UIStyle.styledButton("Clear Form", Color.GRAY);
-            // TODO (Segment 9): wire up Add/Update/Delete/Clear logic
+            addBtn.addActionListener(e -> addSupplier());
+            updateBtn.addActionListener(e -> updateSupplier());
+            deleteBtn.addActionListener(e -> deleteSupplier());
+            clearFormBtn.addActionListener(e -> clearForm());
 
             buttons.add(addBtn);
             buttons.add(updateBtn);
@@ -341,8 +349,99 @@ public class Admin extends JPanel {
 
             return outer;
         }
-    }
 
+        private void loadSuppliers() {
+            tableModel.setRowCount(0);
+            for (Models.Supplier s : DBConnection.getAllSuppliers()) {
+                tableModel.addRow(new Object[]{
+                        s.getSupplierId(), s.getName(), s.getContactPerson(), s.getPhone(), s.getEmail(), s.getAddress()
+                });
+            }
+        }
+
+        private void populateFormFromRow(int row) {
+            selectedSupplierId = (int) tableModel.getValueAt(row, 0);
+            nameField.setText(String.valueOf(tableModel.getValueAt(row, 1)));
+            contactField.setText(String.valueOf(tableModel.getValueAt(row, 2)));
+            phoneField.setText(String.valueOf(tableModel.getValueAt(row, 3)));
+            emailField.setText(String.valueOf(tableModel.getValueAt(row, 4)));
+            addressField.setText(String.valueOf(tableModel.getValueAt(row, 5)));
+        }
+
+        private boolean validateForm() {
+            if (nameField.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Supplier name is required.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return false;
+            }
+            return true;
+        }
+
+        private Models.Supplier buildSupplierFromForm() {
+            Models.Supplier s = new Models.Supplier();
+            s.setSupplierId(selectedSupplierId);
+            s.setName(nameField.getText().trim());
+            s.setContactPerson(contactField.getText().trim());
+            s.setPhone(phoneField.getText().trim());
+            s.setEmail(emailField.getText().trim());
+            s.setAddress(addressField.getText().trim());
+            return s;
+        }
+
+        private void addSupplier() {
+            if (!validateForm()) return;
+            if (DBConnection.addSupplier(buildSupplierFromForm())) {
+                JOptionPane.showMessageDialog(this, "Supplier added successfully.");
+                clearForm();
+                loadSuppliers();
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to add supplier.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
+        private void updateSupplier() {
+            if (selectedSupplierId == -1) {
+                JOptionPane.showMessageDialog(this, "Select a supplier from the table first.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (!validateForm()) return;
+            if (DBConnection.updateSupplier(buildSupplierFromForm())) {
+                JOptionPane.showMessageDialog(this, "Supplier updated successfully.");
+                clearForm();
+                loadSuppliers();
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to update supplier.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
+        private void deleteSupplier() {
+            if (selectedSupplierId == -1) {
+                JOptionPane.showMessageDialog(this, "Select a supplier from the table first.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int confirm = JOptionPane.showConfirmDialog(this, "Delete this supplier permanently?",
+                    "Confirm Delete", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (DBConnection.deleteSupplier(selectedSupplierId)) {
+                    JOptionPane.showMessageDialog(this, "Supplier deleted.");
+                    clearForm();
+                    loadSuppliers();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to delete supplier (it may be referenced by existing medicines).",
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+
+        private void clearForm() {
+            selectedSupplierId = -1;
+            nameField.setText("");
+            contactField.setText("");
+            phoneField.setText("");
+            emailField.setText("");
+            addressField.setText("");
+            table.clearSelection();
+        }
+    }
 
     // TAB 3: Manage Users
     static class ManageUsersTab extends JPanel {
@@ -352,6 +451,7 @@ public class Admin extends JPanel {
         JPasswordField passwordField;
         JComboBox<String> roleCombo;
         JButton addBtn, updateBtn, deleteBtn, clearFormBtn;
+        int selectedUserId = -1;
 
         ManageUsersTab() {
             setLayout(new BorderLayout(10, 10));
@@ -361,6 +461,8 @@ public class Admin extends JPanel {
             add(UIStyle.headerLabel("Manage Users"), BorderLayout.NORTH);
             add(buildTablePanel(), BorderLayout.CENTER);
             add(buildFormPanel(), BorderLayout.SOUTH);
+
+            loadUsers();
         }
 
         private JScrollPane buildTablePanel() {
@@ -370,7 +472,9 @@ public class Admin extends JPanel {
             };
             table = new JTable(tableModel);
             UIStyle.styleTable(table);
-            // TODO (Segment 10): wire up row-selection -> populate form logic
+            table.getSelectionModel().addListSelectionListener(e -> {
+                if (!e.getValueIsAdjusting() && table.getSelectedRow() != -1) populateFormFromRow(table.getSelectedRow());
+            });
             JScrollPane scroll = new JScrollPane(table);
             scroll.setPreferredSize(new Dimension(1000, 320));
             return scroll;
@@ -402,6 +506,10 @@ public class Admin extends JPanel {
             updateBtn = UIStyle.styledButton("Update", UIStyle.PRIMARY);
             deleteBtn = UIStyle.styledButton("Delete", UIStyle.DANGER);
             clearFormBtn = UIStyle.styledButton("Clear Form", Color.GRAY);
+            addBtn.addActionListener(e -> addUser());
+            updateBtn.addActionListener(e -> updateUser());
+            deleteBtn.addActionListener(e -> deleteUser());
+            clearFormBtn.addActionListener(e -> clearForm());
 
             buttons.add(addBtn);
             buttons.add(updateBtn);
@@ -410,6 +518,108 @@ public class Admin extends JPanel {
             outer.add(buttons, BorderLayout.SOUTH);
 
             return outer;
+        }
+
+        private void loadUsers() {
+            tableModel.setRowCount(0);
+            for (Models.User u : DBConnection.getAllUsers()) {
+                tableModel.addRow(new Object[]{u.getUserId(), u.getUsername(), u.getFullName(), u.getRole()});
+            }
+        }
+
+        private void populateFormFromRow(int row) {
+            selectedUserId = (int) tableModel.getValueAt(row, 0);
+            usernameField.setText(String.valueOf(tableModel.getValueAt(row, 1)));
+            fullNameField.setText(String.valueOf(tableModel.getValueAt(row, 2)));
+            roleCombo.setSelectedItem(String.valueOf(tableModel.getValueAt(row, 3)));
+            passwordField.setText(""); // never display existing password; leave blank = keep unchanged
+        }
+
+        private boolean validateForm(boolean isNew) {
+            if (usernameField.getText().trim().isEmpty() || fullNameField.getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Username and Full Name are required.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return false;
+            }
+            if (isNew && new String(passwordField.getPassword()).isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Password is required for new users.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return false;
+            }
+            return true;
+        }
+
+        private void addUser() {
+            if (!validateForm(true)) return;
+            boolean ok = DBConnection.registerUser(
+                    usernameField.getText().trim(),
+                    new String(passwordField.getPassword()),
+                    (String) roleCombo.getSelectedItem(),
+                    fullNameField.getText().trim()
+            );
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "User added successfully.");
+                clearForm();
+                loadUsers();
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to add user (username may already exist).", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
+        private void updateUser() {
+            if (selectedUserId == -1) {
+                JOptionPane.showMessageDialog(this, "Select a user from the table first.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (!validateForm(false)) return;
+
+            Models.User u = new Models.User();
+            u.setUserId(selectedUserId);
+            u.setUsername(usernameField.getText().trim());
+            u.setFullName(fullNameField.getText().trim());
+            u.setRole((String) roleCombo.getSelectedItem());
+
+            String pwd = new String(passwordField.getPassword());
+            if (pwd.isEmpty()) {
+                // Keep existing password if the field was left blank
+                for (Models.User existing : DBConnection.getAllUsers()) {
+                    if (existing.getUserId() == selectedUserId) { pwd = existing.getPassword(); break; }
+                }
+            }
+            u.setPassword(pwd);
+
+            if (DBConnection.updateUser(u)) {
+                JOptionPane.showMessageDialog(this, "User updated successfully.");
+                clearForm();
+                loadUsers();
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to update user.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+
+        private void deleteUser() {
+            if (selectedUserId == -1) {
+                JOptionPane.showMessageDialog(this, "Select a user from the table first.", "No Selection", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int confirm = JOptionPane.showConfirmDialog(this, "Delete this user permanently?",
+                    "Confirm Delete", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (DBConnection.deleteUser(selectedUserId)) {
+                    JOptionPane.showMessageDialog(this, "User deleted.");
+                    clearForm();
+                    loadUsers();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to delete user (they may have sales history).", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+
+        private void clearForm() {
+            selectedUserId = -1;
+            usernameField.setText("");
+            passwordField.setText("");
+            fullNameField.setText("");
+            roleCombo.setSelectedIndex(0);
+            table.clearSelection();
         }
     }
 }

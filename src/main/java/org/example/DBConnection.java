@@ -51,6 +51,7 @@ public class DBConnection {
         }
         return null;
     }
+
     // Registers a new user
     public static boolean registerUser(String username, String password, String role, String fullName) {
         String sql = "INSERT INTO users (username, password, role, full_name) VALUES (?, ?, ?, ?)";
@@ -187,6 +188,7 @@ public class DBConnection {
             try { if (conn != null) conn.setAutoCommit(true); } catch (SQLException e) { e.printStackTrace(); }
         }
     }
+
     // Returns all suppliers, ordered by ID (used to populate the supplier dropdown)
     public static java.util.List<Models.Supplier> getAllSuppliers() {
         java.util.List<Models.Supplier> list = new java.util.ArrayList<>();
@@ -210,6 +212,103 @@ public class DBConnection {
                 rs.getString("email"),
                 rs.getString("address")
         );
+    }
+
+    // Inserts a new supplier
+    public static boolean addSupplier(Models.Supplier s) {
+        String sql = "INSERT INTO suppliers (name, contact_person, phone, email, address) VALUES (?,?,?,?,?)";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            bindSupplier(ps, s);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Updates an existing supplier by supplier_id
+    public static boolean updateSupplier(Models.Supplier s) {
+        String sql = "UPDATE suppliers SET name=?, contact_person=?, phone=?, email=?, address=? WHERE supplier_id=?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            bindSupplier(ps, s);
+            ps.setInt(6, s.getSupplierId());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Deletes a supplier by ID. Returns false if it fails
+    public static boolean deleteSupplier(int supplierId) {
+        String sql = "DELETE FROM suppliers WHERE supplier_id=?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, supplierId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private static void bindSupplier(PreparedStatement ps, Models.Supplier s) throws SQLException {
+        ps.setString(1, s.getName());
+        ps.setString(2, s.getContactPerson());
+        ps.setString(3, s.getPhone());
+        ps.setString(4, s.getEmail());
+        ps.setString(5, s.getAddress());
+    }
+
+    // Returns all users, ordered by ID
+    public static java.util.List<Models.User> getAllUsers() {
+        java.util.List<Models.User> list = new java.util.ArrayList<>();
+        String sql = "SELECT * FROM users ORDER BY user_id";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(new Models.User(
+                        rs.getInt("user_id"), rs.getString("username"), rs.getString("password"),
+                        rs.getString("role"), rs.getString("full_name")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    // Updates an existing user by user_id
+    public static boolean updateUser(Models.User u) {
+        String sql = "UPDATE users SET username=?, password=?, role=?, full_name=? WHERE user_id=?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, u.getUsername());
+            ps.setString(2, u.getPassword());
+            ps.setString(3, u.getRole());
+            ps.setString(4, u.getFullName());
+            ps.setInt(5, u.getUserId());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Deletes a user by ID. Returns false if it fails
+    public static boolean deleteUser(int userId) {
+        String sql = "DELETE FROM users WHERE user_id=?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     // Inserts a new medicine. supplierId may be 0/negative to store NULL
