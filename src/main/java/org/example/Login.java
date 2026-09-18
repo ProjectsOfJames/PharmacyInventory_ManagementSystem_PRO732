@@ -131,8 +131,57 @@ public class Login extends JFrame {
         }
 
         loggedInUser = user;
-        messageLabel.setForeground(UIStyle.SUCCESS);
-        messageLabel.setText("Login successful. Welcome, " + user.getFullName() + "!");
+        dispose();
+        SwingUtilities.invokeLater(() -> openDashboard(user));
+    }
+
+    private void openDashboard(Models.User user) {
+        JFrame dashboard = new JFrame("HealthFirst PIMS - " + user.getRole() + " Dashboard");
+        dashboard.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        dashboard.setLocationRelativeTo(null);
+
+        JPanel root = new JPanel(new BorderLayout());
+
+        // Top bar (shared by both roles)
+        JPanel topBar = new JPanel(new BorderLayout());
+        topBar.setBackground(UIStyle.PRIMARY_DARK);
+        topBar.setPreferredSize(new Dimension(100, 60));
+        JLabel welcome = new JLabel("  Welcome, " + user.getFullName() + " (" + user.getRole() + ")");
+        welcome.setFont(UIStyle.FONT_HEADER);
+        welcome.setForeground(Color.WHITE);
+        topBar.add(welcome, BorderLayout.WEST);
+
+        JButton logoutBtn = UIStyle.styledButton("Logout", UIStyle.DANGER);
+        logoutBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(dashboard, "Are you sure you want to logout?",
+                    "Confirm Logout", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                dashboard.dispose();
+                new Login().setVisible(true);
+            }
+        });
+        JPanel logoutWrap = new JPanel();
+        logoutWrap.setOpaque(false);
+        logoutWrap.add(logoutBtn);
+        topBar.add(logoutWrap, BorderLayout.EAST);
+
+        root.add(topBar, BorderLayout.NORTH);
+
+        // Role-specific content
+        if ("Admin".equalsIgnoreCase(user.getRole())) {
+            JTabbedPane roleTabs = new JTabbedPane();
+            roleTabs.setFont(UIStyle.FONT_LABEL);
+            roleTabs.addTab("Administration", new Admin());
+            roleTabs.addTab("Reports", new Reports());
+            root.add(roleTabs, BorderLayout.CENTER);
+            dashboard.setSize(1150, 720);
+        } else {
+            root.add(new PointOfSales(user), BorderLayout.CENTER);
+            dashboard.setSize(1050, 680);
+        }
+
+        dashboard.setContentPane(root);
+        dashboard.setVisible(true);
     }
 
     // Package-private getters so later segments can attach logic without altering UI structure
