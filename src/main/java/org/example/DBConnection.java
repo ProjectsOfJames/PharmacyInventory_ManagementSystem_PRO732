@@ -76,7 +76,6 @@ public class DBConnection {
     public static java.util.List<Models.Medicine> getAllMedicines() {
         java.util.List<Models.Medicine> list = new java.util.ArrayList<>();
         String sql = MEDICINE_SELECT + "ORDER BY m.medicine_id";
-
         try (Connection conn = getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -100,7 +99,6 @@ public class DBConnection {
             String like = "%" + keyword + "%";
             ps.setString(1, like);
             ps.setString(2, like);
-
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) list.add(mapMedicineRow(rs));
             }
@@ -155,7 +153,6 @@ public class DBConnection {
             for (Models.SaleItem item : items) {
                 try (PreparedStatement ps = conn.prepareStatement(checkStock)) {
                     ps.setInt(1, item.getMedicineId());
-
                     try (ResultSet rs = ps.executeQuery()) {
                         if (!rs.next() || rs.getInt("quantity_in_stock") < item.getQuantitySold()) {
                             conn.rollback();
@@ -309,6 +306,87 @@ public class DBConnection {
             e.printStackTrace();
             return false;
         }
+    }
+
+    // Simple holder for the sales summary (total transactions + total revenue) over a date range
+    public static class SalesSummary {
+        public final int numSales;
+        public final java.math.BigDecimal revenue;
+        public SalesSummary(int numSales, java.math.BigDecimal revenue) {
+            this.numSales = numSales;
+            this.revenue = revenue;
+        }
+    }
+
+    // Sales report: one row per transaction, between two dates (inclusive)
+    public static javax.swing.table.DefaultTableModel getSalesReport(java.sql.Date from, java.sql.Date to) {
+        String[] cols = {"Sale ID", "Date/Time", "Cashier", "Total (R)"};
+        javax.swing.table.DefaultTableModel model = new javax.swing.table.DefaultTableModel(cols, 0);
+        String sql = "SELECT s.sale_id, s.sale_date, u.full_name, s.total_amount " +
+                "FROM sales s LEFT JOIN users u ON s.user_id = u.user_id " +
+                "WHERE s.sale_date::date BETWEEN ? AND ? ORDER BY s.sale_date DESC";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, from);
+            ps.setDate(2, to);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    model.addRow(new Object[]{
+                            rs.getInt("sale_id"), rs.getTimestamp("sale_date"),
+                            rs.getString("full_name"), rs.getBigDecimal("total_amount")
+                    });
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return model;
+    }
+
+    // Total transactions and total revenue between two dates (inclusive)
+    public static SalesSummary getSalesSummary(java.sql.Date from, java.sql.Date to) {
+        String sql = "SELECT COUNT(*) AS num_sales, COALESCE(SUM(total_amount),0) AS revenue " +
+                "FROM sales WHERE sale_date::date BETWEEN ? AND ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, from);
+            ps.setDate(2, to);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new SalesSummary(rs.getInt("num_sales"), rs.getBigDecimal("revenue"));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return new SalesSummary(0, java.math.BigDecimal.ZERO);
+    }
+
+    // Item-wise report: total quantity and revenue per medicine, between two dates
+    public static javax.swing.table.DefaultTableModel getItemWiseReport(java.sql.Date from, java.sql.Date to) {
+        String[] cols = {"Medicine", "Qty Sold", "Revenue (R)"};
+        javax.swing.table.DefaultTableModel model = new javax.swing.table.DefaultTableModel(cols, 0);
+        String sql = "SELECT m.name, SUM(si.quantity_sold) AS qty, SUM(si.quantity_sold * si.price_at_sale) AS revenue " +
+                "FROM sale_items si " +
+                "JOIN sales s ON si.sale_id = s.sale_id " +
+                "JOIN medicines m ON si.medicine_id = m.medicine_id " +
+                "WHERE s.sale_date::date BETWEEN ? AND ? " +
+                "GROUP BY m.medicine_id, m.name ORDER BY qty DESC";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, from);
+            ps.setDate(2, to);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    model.addRow(new Object[]{
+                            rs.getString("name"), rs.getInt("qty"), rs.getBigDecimal("revenue")
+                    });
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return model;
     }
 
     // Inserts a new medicine. supplierId may be 0/negative to store NULL

@@ -61,6 +61,14 @@ public class Reports extends JPanel {
             toField = new JTextField(today.toString(), 10);
             generateBtn = UIStyle.styledButton("Generate", UIStyle.PRIMARY);
             printBtn = UIStyle.styledButton("Print", UIStyle.ACCENT);
+            generateBtn.addActionListener(e -> generate());
+            printBtn.addActionListener(e -> {
+                try {
+                    table.print(JTable.PrintMode.FIT_WIDTH, null, null);
+                } catch (java.awt.print.PrinterException ex) {
+                    JOptionPane.showMessageDialog(this, "Printing failed: " + ex.getMessage(), "Print Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
 
             filterPanel.add(new JLabel("From (yyyy-MM-dd):"));
             filterPanel.add(fromField);
@@ -78,6 +86,22 @@ public class Reports extends JPanel {
             add(filterPanel, BorderLayout.NORTH);
             add(new JScrollPane(table), BorderLayout.CENTER);
             add(summaryLabel, BorderLayout.SOUTH);
+
+            generate();
+        }
+
+        private void generate() {
+            try {
+                java.sql.Date from = java.sql.Date.valueOf(fromField.getText().trim());
+                java.sql.Date to = java.sql.Date.valueOf(toField.getText().trim());
+                table.setModel(DBConnection.getSalesReport(from, to));
+                UIStyle.styleTable(table);
+                DBConnection.SalesSummary summary = DBConnection.getSalesSummary(from, to);
+                summaryLabel.setText(String.format("  Total Transactions: %d   |   Total Revenue: R%.2f",
+                        summary.numSales, summary.revenue));
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Invalid date format. Use yyyy-MM-dd.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -100,6 +124,23 @@ public class Reports extends JPanel {
             toField = new JTextField(today.toString(), 10);
             generateBtn = UIStyle.styledButton("Generate", UIStyle.PRIMARY);
             printBtn = UIStyle.styledButton("Print", UIStyle.ACCENT);
+            generateBtn.addActionListener(e -> {
+                try {
+                    table.setModel(DBConnection.getItemWiseReport(
+                            java.sql.Date.valueOf(fromField.getText().trim()),
+                            java.sql.Date.valueOf(toField.getText().trim())));
+                    UIStyle.styleTable(table);
+                } catch (IllegalArgumentException ex) {
+                    JOptionPane.showMessageDialog(this, "Invalid date format. Use yyyy-MM-dd.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+            printBtn.addActionListener(e -> {
+                try {
+                    table.print(JTable.PrintMode.FIT_WIDTH, null, null);
+                } catch (java.awt.print.PrinterException ex) {
+                    JOptionPane.showMessageDialog(this, "Printing failed: " + ex.getMessage(), "Print Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
 
             filterPanel.add(new JLabel("From:"));
             filterPanel.add(fromField);
@@ -113,6 +154,8 @@ public class Reports extends JPanel {
 
             add(filterPanel, BorderLayout.NORTH);
             add(new JScrollPane(table), BorderLayout.CENTER);
+
+            generateBtn.doClick();
         }
     }
 
@@ -163,7 +206,7 @@ public class Reports extends JPanel {
             top.add(daysSpinner);
             refreshBtn = UIStyle.styledButton("Refresh", UIStyle.PRIMARY);
             printBtn = UIStyle.styledButton("Print", UIStyle.ACCENT);
-            // TODO (Segment 12): wire up Refresh/Print logic
+
             top.add(refreshBtn);
             top.add(printBtn);
 
