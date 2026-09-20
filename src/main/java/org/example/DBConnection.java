@@ -389,6 +389,55 @@ public class DBConnection {
         return model;
     }
 
+    // Low stock report: medicines at or below their reorder level
+    public static javax.swing.table.DefaultTableModel getLowStockReport() {
+        String[] cols = {"Medicine", "Company", "In Stock", "Reorder Level", "Supplier"};
+        javax.swing.table.DefaultTableModel model = new javax.swing.table.DefaultTableModel(cols, 0);
+        String sql = "SELECT m.name, m.company, m.quantity_in_stock, m.reorder_level, s.name AS supplier_name " +
+                "FROM medicines m LEFT JOIN suppliers s ON m.supplier_id = s.supplier_id " +
+                "WHERE m.quantity_in_stock <= m.reorder_level ORDER BY m.quantity_in_stock ASC";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                model.addRow(new Object[]{
+                        rs.getString("name"), rs.getString("company"),
+                        rs.getInt("quantity_in_stock"), rs.getInt("reorder_level"),
+                        rs.getString("supplier_name")
+                });
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return model;
+    }
+
+    // Expiry report: medicines expiring within the next N days
+    public static javax.swing.table.DefaultTableModel getExpiryReport(int withinDays) {
+        String[] cols = {"Medicine", "Company", "Expiry Date", "Qty In Stock", "Supplier"};
+        javax.swing.table.DefaultTableModel model = new javax.swing.table.DefaultTableModel(cols, 0);
+        String sql = "SELECT m.name, m.company, m.expiry_date, m.quantity_in_stock, s.name AS supplier_name " +
+                "FROM medicines m LEFT JOIN suppliers s ON m.supplier_id = s.supplier_id " +
+                "WHERE m.expiry_date <= (CURRENT_DATE + (? || ' days')::interval) " +
+                "ORDER BY m.expiry_date ASC";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, withinDays);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    model.addRow(new Object[]{
+                            rs.getString("name"), rs.getString("company"),
+                            rs.getDate("expiry_date"), rs.getInt("quantity_in_stock"),
+                            rs.getString("supplier_name")
+                    });
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return model;
+    }
+
     // Inserts a new medicine. supplierId may be 0/negative to store NULL
     public static boolean addMedicine(Models.Medicine m) {
         String sql = "INSERT INTO medicines (name, company, medicine_type, price, quantity_in_stock, reorder_level, expiry_date, supplier_id) " +

@@ -174,12 +174,21 @@ public class Reports extends JPanel {
             top.setOpaque(false);
             refreshBtn = UIStyle.styledButton("Refresh", UIStyle.PRIMARY);
             printBtn = UIStyle.styledButton("Print", UIStyle.ACCENT);
-
+            refreshBtn.addActionListener(e -> {
+                table.setModel(DBConnection.getLowStockReport());
+                UIStyle.styleTable(table);
+            });
+            printBtn.addActionListener(e -> {
+                try {
+                    table.print(JTable.PrintMode.FIT_WIDTH, null, null);
+                } catch (java.awt.print.PrinterException ex) {
+                    JOptionPane.showMessageDialog(this, "Printing failed: " + ex.getMessage(), "Print Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
             top.add(refreshBtn);
             top.add(printBtn);
 
-            table = new JTable(new DefaultTableModel(
-                    new String[]{"Medicine", "Company", "In Stock", "Reorder Level", "Supplier"}, 0));
+            table = new JTable(DBConnection.getLowStockReport());
             UIStyle.styleTable(table);
 
             add(top, BorderLayout.NORTH);
@@ -206,12 +215,22 @@ public class Reports extends JPanel {
             top.add(daysSpinner);
             refreshBtn = UIStyle.styledButton("Refresh", UIStyle.PRIMARY);
             printBtn = UIStyle.styledButton("Print", UIStyle.ACCENT);
-
+            refreshBtn.addActionListener(e -> {
+                int days = (Integer) daysSpinner.getValue();
+                table.setModel(DBConnection.getExpiryReport(days));
+                UIStyle.styleTable(table);
+            });
+            printBtn.addActionListener(e -> {
+                try {
+                    table.print(JTable.PrintMode.FIT_WIDTH, null, null);
+                } catch (java.awt.print.PrinterException ex) {
+                    JOptionPane.showMessageDialog(this, "Printing failed: " + ex.getMessage(), "Print Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
             top.add(refreshBtn);
             top.add(printBtn);
 
-            table = new JTable(new DefaultTableModel(
-                    new String[]{"Medicine", "Company", "Expiry Date", "Qty In Stock", "Supplier"}, 0));
+            table = new JTable(DBConnection.getExpiryReport(30));
             UIStyle.styleTable(table);
 
             add(top, BorderLayout.NORTH);

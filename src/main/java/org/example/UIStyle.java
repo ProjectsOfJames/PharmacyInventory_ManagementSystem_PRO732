@@ -69,7 +69,7 @@ public class UIStyle {
 
         table.setFont(FONT_TABLE);
         table.setRowHeight(26);
-        table.setSelectionBackground(new Color(200, 224, 246));
+        table.setSelectionBackground(new Color(97, 177, 255));
         table.setGridColor(new Color(224, 224, 224));
     }
 
