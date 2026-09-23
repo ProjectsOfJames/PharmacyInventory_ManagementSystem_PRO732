@@ -75,17 +75,6 @@ public class Login extends JFrame {
         loginBtn.addActionListener(e -> attemptLogin());
         passwordField.addActionListener(e -> attemptLogin()); // Enter key submits
 
-        JButton signUpLink = new JButton("Don't have an account? Sign Up");
-        signUpLink.setFont(UIStyle.FONT_LABEL);
-        signUpLink.setAlignmentX(Component.LEFT_ALIGNMENT);
-        signUpLink.setBorderPainted(false);
-        signUpLink.setContentAreaFilled(false);
-        signUpLink.setForeground(UIStyle.PRIMARY);
-        signUpLink.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        signUpLink.addActionListener(e -> {
-            dispose();
-            new SignUp().setVisible(true);
-        });
 
         form.add(userLbl);
         form.add(Box.createVerticalStrut(5));
@@ -98,8 +87,6 @@ public class Login extends JFrame {
         form.add(messageLabel);
         form.add(Box.createVerticalStrut(15));
         form.add(loginBtn);
-        form.add(Box.createVerticalStrut(12));
-        form.add(signUpLink);
 
         root.add(form, BorderLayout.CENTER);
 
